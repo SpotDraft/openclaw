@@ -14,7 +14,12 @@ import { resolveDefaultModelForAgent } from "../model-selection.js";
 import { optionalStringEnum } from "../schema/typebox.js";
 import { buildSubagentSystemPrompt } from "../subagent-announce.js";
 import { getSubagentDepthFromSessionStore } from "../subagent-depth.js";
-import { countActiveRunsForSession, registerSubagentRun } from "../subagent-registry.js";
+import {
+  countActiveRunsForSession,
+  markSubagentRunCleanupHandled,
+  registerSubagentRun,
+} from "../subagent-registry.js";
+import { readLatestAssistantReply } from "./agent-step.js";
 import { jsonResult, readStringParam } from "./common.js";
 import {
   resolveDisplaySessionKey,
@@ -30,6 +35,7 @@ const SessionsSpawnToolSchema = Type.Object({
   thinking: Type.Optional(Type.String()),
   runTimeoutSeconds: Type.Optional(Type.Number({ minimum: 0 })),
   cleanup: optionalStringEnum(["delete", "keep"] as const),
+  wait: Type.Optional(Type.Boolean()),
 });
 
 function splitModelRef(ref?: string) {
@@ -90,6 +96,7 @@ export function createSessionsSpawnTool(opts?: {
       const thinkingOverrideRaw = readStringParam(params, "thinking");
       const cleanup =
         params.cleanup === "keep" || params.cleanup === "delete" ? params.cleanup : "keep";
+      const waitForResult = params.wait === true;
       const requesterOrigin = normalizeDeliveryContext({
         channel: opts?.agentChannel,
         accountId: opts?.agentAccountId,
@@ -328,13 +335,67 @@ export function createSessionsSpawnTool(opts?: {
         runTimeoutSeconds,
       });
 
-      return jsonResult({
-        status: "accepted",
-        childSessionKey,
-        runId: childRunId,
-        modelApplied: resolvedModel ? modelApplied : undefined,
-        warning: modelWarning,
-      });
+      if (!waitForResult) {
+        return jsonResult({
+          status: "accepted",
+          childSessionKey,
+          runId: childRunId,
+          modelApplied: resolvedModel ? modelApplied : undefined,
+          warning: modelWarning,
+        });
+      }
+
+      // Synchronous spawn: block until the sub-agent finishes and return the result inline.
+      const waitTimeoutMs = runTimeoutSeconds > 0 ? runTimeoutSeconds * 1000 : 120_000;
+      try {
+        const wait = await callGateway<{
+          status?: string;
+          startedAt?: number;
+          endedAt?: number;
+          error?: string;
+        }>({
+          method: "agent.wait",
+          params: { runId: childRunId, timeoutMs: waitTimeoutMs },
+          timeoutMs: waitTimeoutMs + 10_000,
+        });
+
+        if (wait?.status === "timeout") {
+          // Let the announce flow handle it normally (don't suppress).
+          return jsonResult({
+            status: "timeout",
+            childSessionKey,
+            runId: childRunId,
+          });
+        }
+
+        // Suppress the announce flow — the lead already has the result inline.
+        markSubagentRunCleanupHandled(childRunId);
+
+        const resultText = await readLatestAssistantReply({ sessionKey: childSessionKey });
+        const runtimeMs =
+          typeof wait?.startedAt === "number" && typeof wait?.endedAt === "number"
+            ? Math.max(0, wait.endedAt - wait.startedAt)
+            : undefined;
+
+        return jsonResult({
+          status: "completed",
+          result: resultText ?? "(no output)",
+          childSessionKey,
+          runId: childRunId,
+          runtimeMs,
+          modelApplied: resolvedModel ? modelApplied : undefined,
+          warning: modelWarning,
+        });
+      } catch {
+        // On RPC failure, fall back to accepted — announce will still fire.
+        return jsonResult({
+          status: "accepted",
+          childSessionKey,
+          runId: childRunId,
+          modelApplied: resolvedModel ? modelApplied : undefined,
+          warning: modelWarning,
+        });
+      }
     },
   };
 }

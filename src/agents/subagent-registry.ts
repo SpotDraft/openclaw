@@ -308,6 +308,23 @@ function beginSubagentCleanup(runId: string) {
   return true;
 }
 
+export function markSubagentRunCleanupHandled(runId: string): boolean {
+  const key = runId.trim();
+  if (!key) {
+    return false;
+  }
+  const entry = subagentRuns.get(key);
+  if (!entry) {
+    return false;
+  }
+  if (entry.cleanupHandled) {
+    return true;
+  }
+  entry.cleanupHandled = true;
+  persistSubagentRuns();
+  return true;
+}
+
 export function markSubagentRunForSteerRestart(runId: string) {
   const key = runId.trim();
   if (!key) {

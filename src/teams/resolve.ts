@@ -100,7 +100,13 @@ export function buildTeamContextPrompt(opts: { cfg: OpenClawConfig; team: TeamCo
   }
 
   lines.push("");
-  lines.push("Route tasks to the appropriate team member using sessions_spawn.");
+  lines.push("Use sessions_spawn to delegate tasks to team members:");
+  lines.push(
+    "- With `wait: true`: blocks until the member completes and returns the result inline. Use when you need the result before deciding next steps.",
+  );
+  lines.push(
+    "- Without `wait` (default): fire-and-forget. The member's result is announced back in a follow-up turn. Use for parallel fan-out of independent tasks.",
+  );
 
   return lines.join("\n");
 }
