@@ -3,7 +3,7 @@ import { repeat } from "lit/directives/repeat.js";
 import type { AppViewState } from "./app-view-state.ts";
 import type { ThemeTransitionContext } from "./theme-transition.ts";
 import type { ThemeMode } from "./theme.ts";
-import type { GatewayAgentRow, SessionsListResult } from "./types.ts";
+import type { GatewayAgentRow, SessionsListResult, TeamSummary } from "./types.ts";
 import { parseAgentSessionKey } from "../../../src/sessions/session-key-utils.js";
 import { refreshChat, refreshChatAvatar } from "./app-chat.ts";
 import { syncUrlWithSessionKey } from "./app-settings.ts";
@@ -82,12 +82,17 @@ export function renderTab(state: AppViewState, tab: Tab) {
   `;
 }
 
-function resolveCurrentAgentId(sessionKey: string, agentsList: AppViewState["agentsList"]): string {
-  const parsed = parseAgentSessionKey(sessionKey);
+const TEAM_PREFIX = "team:";
+
+function resolveCurrentPickerValue(state: AppViewState): string {
+  if (state.chatTeamId) {
+    return `${TEAM_PREFIX}${state.chatTeamId}`;
+  }
+  const parsed = parseAgentSessionKey(state.sessionKey);
   if (parsed?.agentId) {
     return parsed.agentId;
   }
-  return agentsList?.defaultId ?? "main";
+  return state.agentsList?.defaultId ?? "main";
 }
 
 function buildAgentSessionKey(agentId: string, mainKey?: string): string {
@@ -119,39 +124,103 @@ function switchToAgent(state: AppViewState, agentId: string) {
   void refreshChatAvatar(state as unknown as Parameters<typeof refreshChatAvatar>[0]);
 }
 
+function switchToTeam(state: AppViewState, teamId: string, team: TeamSummary) {
+  const leadAgentId = team.lead.id;
+  const nextSessionKey = `agent:${leadAgentId}:team:${teamId}:main`;
+  state.chatTeamId = teamId;
+  state.sessionKey = nextSessionKey;
+  state.chatMessage = "";
+  state.chatStream = null;
+  (state as unknown as OpenClawApp).chatStreamStartedAt = null;
+  state.chatRunId = null;
+  (state as unknown as OpenClawApp).resetToolStream();
+  (state as unknown as OpenClawApp).resetChatScroll();
+  state.applySettings({
+    ...state.settings,
+    sessionKey: nextSessionKey,
+    lastActiveSessionKey: nextSessionKey,
+  });
+  void state.loadAssistantIdentity();
+  syncUrlWithSessionKey(
+    state as unknown as Parameters<typeof syncUrlWithSessionKey>[0],
+    nextSessionKey,
+    true,
+  );
+  void loadChatHistory(state as unknown as ChatState);
+  void refreshChatAvatar(state as unknown as Parameters<typeof refreshChatAvatar>[0]);
+}
+
 function renderAgentLabel(agent: GatewayAgentRow): string {
   const emoji = agent.identity?.emoji;
   const name = agent.identity?.name || agent.name || agent.id;
   return emoji ? `${emoji} ${name}` : name;
 }
 
+function renderTeamLabel(team: TeamSummary): string {
+  const name = team.name || team.id;
+  return `\u{1F465} ${name}`;
+}
+
 function renderAgentPicker(state: AppViewState) {
   const agents = state.agentsList?.agents;
-  if (!agents || agents.length <= 1) {
+  const teams = state.teamsList?.teams;
+  const hasMultipleAgents = agents && agents.length > 1;
+  const hasTeams = teams && teams.length > 0;
+  if (!hasMultipleAgents && !hasTeams) {
     return nothing;
   }
-  const currentAgentId = resolveCurrentAgentId(state.sessionKey, state.agentsList);
+  const currentValue = resolveCurrentPickerValue(state);
   return html`
     <label class="field chat-controls__agent">
       <select
-        .value=${currentAgentId}
+        .value=${currentValue}
         ?disabled=${!state.connected}
         @change=${(e: Event) => {
-          const nextAgentId = (e.target as HTMLSelectElement).value;
-          if (nextAgentId !== currentAgentId) {
-            switchToAgent(state, nextAgentId);
+          const next = (e.target as HTMLSelectElement).value;
+          if (next === currentValue) {
+            return;
+          }
+          if (next.startsWith(TEAM_PREFIX)) {
+            const teamId = next.slice(TEAM_PREFIX.length);
+            const team = teams?.find((t) => t.id === teamId);
+            if (team) {
+              switchToTeam(state, teamId, team);
+            }
+          } else {
+            state.chatTeamId = null;
+            switchToAgent(state, next);
           }
         }}
-        title="Switch agent"
+        title="Switch agent or team"
       >
-        ${repeat(
-          agents,
-          (agent) => agent.id,
-          (agent) =>
-            html`<option value=${agent.id}>
-              ${renderAgentLabel(agent)}
-            </option>`,
-        )}
+        ${
+          agents && agents.length > 0
+            ? html`<optgroup label="Agents">
+              ${repeat(
+                agents,
+                (agent) => agent.id,
+                (agent) =>
+                  html`<option value=${agent.id}>
+                    ${renderAgentLabel(agent)}
+                  </option>`,
+              )}
+            </optgroup>`
+            : nothing
+        }
+        ${
+          hasTeams
+            ? html`<optgroup label="Teams">
+              ${repeat(
+                teams,
+                (team) => team.id,
+                (team) =>
+                  html`<option value=${`${TEAM_PREFIX}${team.id}`}>
+                    ${renderTeamLabel(team)}
+                  </option>`,
+              )}
+            </optgroup>`
+            : nothing
+        }
       </select>
     </label>
     <span class="chat-controls__separator">|</span>

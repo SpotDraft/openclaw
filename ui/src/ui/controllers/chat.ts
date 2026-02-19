@@ -14,6 +14,7 @@ export type ChatState = {
   chatMessage: string;
   chatAttachments: ChatAttachment[];
   chatRunId: string | null;
+  chatTeamId: string | null;
   chatStream: string | null;
   chatStreamStartedAt: number | null;
   lastError: string | null;
@@ -123,13 +124,23 @@ export async function sendChatMessage(
     : undefined;
 
   try {
-    await state.client.request("chat.send", {
-      sessionKey: state.sessionKey,
-      message: msg,
-      deliver: false,
-      idempotencyKey: runId,
-      attachments: apiAttachments,
-    });
+    if (state.chatTeamId) {
+      await state.client.request("teams.run", {
+        teamId: state.chatTeamId,
+        message: msg,
+        sessionKey: state.sessionKey,
+        idempotencyKey: runId,
+        deliver: false,
+      });
+    } else {
+      await state.client.request("chat.send", {
+        sessionKey: state.sessionKey,
+        message: msg,
+        deliver: false,
+        idempotencyKey: runId,
+        attachments: apiAttachments,
+      });
+    }
     return runId;
   } catch (err) {
     const error = String(err);

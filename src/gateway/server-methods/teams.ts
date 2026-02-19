@@ -3,9 +3,11 @@ import type { GatewayRequestHandlers } from "./types.js";
 import { countActiveRunsForSession } from "../../agents/subagent-registry.js";
 import { agentCommand } from "../../commands/agent.js";
 import { loadConfig } from "../../config/config.js";
+import { registerAgentRunContext } from "../../infra/agent-events.js";
 import { normalizeAgentId } from "../../routing/session-key.js";
 import { defaultRuntime } from "../../runtime.js";
 import { resolveTeam, listTeamsResolved, buildTeamContextPrompt } from "../../teams/resolve.js";
+import { GATEWAY_CLIENT_CAPS, hasGatewayClientCap } from "../protocol/client-info.js";
 import {
   ErrorCodes,
   errorShape,
@@ -34,7 +36,7 @@ export const teamsHandlers: GatewayRequestHandlers = {
     respond(true, { teams }, undefined);
   },
 
-  "teams.run": async ({ params, respond, context }) => {
+  "teams.run": async ({ params, respond, context, client }) => {
     if (!validateTeamsRunParams(params)) {
       respond(
         false,
@@ -74,6 +76,20 @@ export const teamsHandlers: GatewayRequestHandlers = {
     const runId = idem;
     const sessionKey =
       p.sessionKey || `agent:${leadAgentId}:team:${team.id}:${crypto.randomUUID()}`;
+
+    // Register with the streaming pipeline so delta/final events are
+    // broadcast to connected clients (same mechanism as chat.send).
+    registerAgentRunContext(runId, { sessionKey });
+    context.addChatRun(runId, { sessionKey, clientRunId: runId });
+
+    const connId = typeof client?.connId === "string" ? client.connId : undefined;
+    const wantsToolEvents = hasGatewayClientCap(
+      client?.connect?.caps,
+      GATEWAY_CLIENT_CAPS.TOOL_EVENTS,
+    );
+    if (connId && wantsToolEvents) {
+      context.registerToolEventRecipient(runId, connId);
+    }
 
     const accepted = {
       runId,
