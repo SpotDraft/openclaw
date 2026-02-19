@@ -369,6 +369,7 @@ export function renderApp(state: AppViewState) {
                 agentSkillsError: state.agentSkillsError,
                 agentSkillsAgentId: state.agentSkillsAgentId,
                 skillsFilter: state.skillsFilter,
+                activityFeed: state.activityFeed,
                 onRefresh: async () => {
                   await loadAgents(state);
                   const agentIds = state.agentsList?.agents?.map((entry) => entry.id) ?? [];
@@ -391,7 +392,7 @@ export function renderApp(state: AppViewState) {
                   state.agentSkillsError = null;
                   state.agentSkillsAgentId = null;
                   void loadAgentIdentity(state, agentId);
-                  if (state.agentsPanel === "files") {
+                  if (state.agentsPanel === "files" || state.agentsPanel === "soul") {
                     void loadAgentFiles(state, agentId);
                   }
                   if (state.agentsPanel === "skills") {
@@ -400,7 +401,7 @@ export function renderApp(state: AppViewState) {
                 },
                 onSelectPanel: (panel) => {
                   state.agentsPanel = panel;
-                  if (panel === "files" && resolvedAgentId) {
+                  if ((panel === "files" || panel === "soul") && resolvedAgentId) {
                     if (state.agentFilesList?.agentId !== resolvedAgentId) {
                       state.agentFilesList = null;
                       state.agentFilesError = null;
@@ -408,6 +409,12 @@ export function renderApp(state: AppViewState) {
                       state.agentFileContents = {};
                       state.agentFileDrafts = {};
                       void loadAgentFiles(state, resolvedAgentId);
+                    }
+                    if (panel === "soul") {
+                      state.agentFileActive = "SOUL.md";
+                      if (resolvedAgentId && !state.agentFileContents["SOUL.md"]) {
+                        void loadAgentFileContent(state, resolvedAgentId, "SOUL.md");
+                      }
                     }
                   }
                   if (panel === "skills") {

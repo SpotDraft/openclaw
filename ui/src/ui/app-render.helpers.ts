@@ -1,10 +1,11 @@
-import { html } from "lit";
+import { html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import type { AppViewState } from "./app-view-state.ts";
 import type { ThemeTransitionContext } from "./theme-transition.ts";
 import type { ThemeMode } from "./theme.ts";
-import type { SessionsListResult } from "./types.ts";
-import { refreshChat } from "./app-chat.ts";
+import type { GatewayAgentRow, SessionsListResult } from "./types.ts";
+import { parseAgentSessionKey } from "../../../src/sessions/session-key-utils.js";
+import { refreshChat, refreshChatAvatar } from "./app-chat.ts";
 import { syncUrlWithSessionKey } from "./app-settings.ts";
 import { OpenClawApp } from "./app.ts";
 import { ChatState, loadChatHistory } from "./controllers/chat.ts";
@@ -81,6 +82,82 @@ export function renderTab(state: AppViewState, tab: Tab) {
   `;
 }
 
+function resolveCurrentAgentId(sessionKey: string, agentsList: AppViewState["agentsList"]): string {
+  const parsed = parseAgentSessionKey(sessionKey);
+  if (parsed?.agentId) {
+    return parsed.agentId;
+  }
+  return agentsList?.defaultId ?? "main";
+}
+
+function buildAgentSessionKey(agentId: string, mainKey?: string): string {
+  const key = mainKey || "main";
+  return `agent:${agentId}:${key}`;
+}
+
+function switchToAgent(state: AppViewState, agentId: string) {
+  const nextSessionKey = buildAgentSessionKey(agentId);
+  state.sessionKey = nextSessionKey;
+  state.chatMessage = "";
+  state.chatStream = null;
+  (state as unknown as OpenClawApp).chatStreamStartedAt = null;
+  state.chatRunId = null;
+  (state as unknown as OpenClawApp).resetToolStream();
+  (state as unknown as OpenClawApp).resetChatScroll();
+  state.applySettings({
+    ...state.settings,
+    sessionKey: nextSessionKey,
+    lastActiveSessionKey: nextSessionKey,
+  });
+  void state.loadAssistantIdentity();
+  syncUrlWithSessionKey(
+    state as unknown as Parameters<typeof syncUrlWithSessionKey>[0],
+    nextSessionKey,
+    true,
+  );
+  void loadChatHistory(state as unknown as ChatState);
+  void refreshChatAvatar(state as unknown as Parameters<typeof refreshChatAvatar>[0]);
+}
+
+function renderAgentLabel(agent: GatewayAgentRow): string {
+  const emoji = agent.identity?.emoji;
+  const name = agent.identity?.name || agent.name || agent.id;
+  return emoji ? `${emoji} ${name}` : name;
+}
+
+function renderAgentPicker(state: AppViewState) {
+  const agents = state.agentsList?.agents;
+  if (!agents || agents.length <= 1) {
+    return nothing;
+  }
+  const currentAgentId = resolveCurrentAgentId(state.sessionKey, state.agentsList);
+  return html`
+    <label class="field chat-controls__agent">
+      <select
+        .value=${currentAgentId}
+        ?disabled=${!state.connected}
+        @change=${(e: Event) => {
+          const nextAgentId = (e.target as HTMLSelectElement).value;
+          if (nextAgentId !== currentAgentId) {
+            switchToAgent(state, nextAgentId);
+          }
+        }}
+        title="Switch agent"
+      >
+        ${repeat(
+          agents,
+          (agent) => agent.id,
+          (agent) =>
+            html`<option value=${agent.id}>
+              ${renderAgentLabel(agent)}
+            </option>`,
+        )}
+      </select>
+    </label>
+    <span class="chat-controls__separator">|</span>
+  `;
+}
+
 export function renderChatControls(state: AppViewState) {
   const mainSessionKey = resolveMainSessionKey(state.hello, state.sessionsResult);
   const sessionOptions = resolveSessionOptions(
@@ -128,6 +205,7 @@ export function renderChatControls(state: AppViewState) {
   `;
   return html`
     <div class="chat-controls">
+      ${renderAgentPicker(state)}
       <label class="field chat-controls__session">
         <select
           .value=${state.sessionKey}

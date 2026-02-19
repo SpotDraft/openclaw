@@ -1,0 +1,70 @@
+# Multi-Agent POC Configuration
+# Copy this into your ~/.openclaw/config.yaml (or merge with existing config)
+#
+# Each agent gets its own workspace, persona (SOUL.md), identity (IDENTITY.md),
+# model config, and tool profile. The gateway resolves agents by ID and routes
+# messages to the correct workspace.
+#
+# The "router" agent acts as a classifier: it receives all messages first and
+# delegates to the right specialist via sessions_spawn. Users don't need to
+# pick an agent manually.
+
+agents:
+  defaults:
+    model:
+      primary: claude-sonnet-4-5-20250929
+    subagents:
+      maxSpawnDepth: 2
+
+  list:
+    - id: router
+      name: Router Agent
+      default: true
+      workspace: ~/.openclaw/workspaces/router
+      model:
+        primary: claude-haiku-4-5-20251001
+      tools:
+        profile: minimal
+      subagents:
+        allowAgents: ["*"]
+
+    - id: researcher
+      name: Research Agent
+      workspace: ~/.openclaw/workspaces/researcher
+      model:
+        primary: claude-sonnet-4-5-20250929
+      tools:
+        profile: full
+      subagents:
+        allowAgents: ["*"]
+
+    - id: writer
+      name: Writing Agent
+      workspace: ~/.openclaw/workspaces/writer
+      model:
+        primary: claude-sonnet-4-5-20250929
+      tools:
+        profile: messaging
+        alsoAllow:
+          - read
+
+    - id: coder
+      name: Code Agent
+      workspace: ~/.openclaw/workspaces/coder
+      model:
+        primary: claude-sonnet-4-5-20250929
+      tools:
+        profile: coding
+      subagents:
+        allowAgents: ["*"]
+
+    - id: designer
+      name: Agent Designer
+      workspace: ~/.openclaw/workspaces/designer
+      model:
+        primary: claude-sonnet-4-5-20250929
+      tools:
+        profile: minimal
+        alsoAllow:
+          - gateway
+          - agents_files_set

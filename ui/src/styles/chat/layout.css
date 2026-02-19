@@ -331,6 +331,19 @@
   flex-wrap: wrap;
 }
 
+.chat-controls__agent {
+  min-width: 120px;
+  max-width: 240px;
+}
+
+.chat-controls__agent select {
+  padding: 6px 10px;
+  font-size: 13px;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .chat-controls__session {
   min-width: 140px;
   max-width: 420px;

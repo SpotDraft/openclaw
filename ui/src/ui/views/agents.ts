@@ -1,4 +1,5 @@
 import { html, nothing } from "lit";
+import type { ActivityEntry } from "../app-tool-stream.ts";
 import type {
   AgentIdentityResult,
   AgentsFilesListResult,
@@ -8,6 +9,8 @@ import type {
   CronStatus,
   SkillStatusReport,
 } from "../types.ts";
+import { renderActivityFeed } from "./agents-panels-activity.ts";
+import { renderSoulEditor } from "./agents-panels-soul.ts";
 import {
   renderAgentFiles,
   renderAgentChannels,
@@ -28,7 +31,15 @@ import {
   resolveModelPrimary,
 } from "./agents-utils.ts";
 
-export type AgentsPanel = "overview" | "files" | "tools" | "skills" | "channels" | "cron";
+export type AgentsPanel =
+  | "overview"
+  | "files"
+  | "tools"
+  | "skills"
+  | "channels"
+  | "cron"
+  | "activity"
+  | "soul";
 
 export type AgentsProps = {
   loading: boolean;
@@ -63,6 +74,7 @@ export type AgentsProps = {
   agentSkillsError: string | null;
   agentSkillsAgentId: string | null;
   skillsFilter: string;
+  activityFeed: ActivityEntry[];
   onRefresh: () => void;
   onSelectAgent: (agentId: string) => void;
   onSelectPanel: (panel: AgentsPanel) => void;
@@ -278,6 +290,25 @@ export function renderAgents(props: AgentsProps) {
                       })
                     : nothing
                 }
+                ${
+                  props.activePanel === "activity"
+                    ? renderActivityFeed(props.activityFeed)
+                    : nothing
+                }
+                ${
+                  props.activePanel === "soul"
+                    ? renderSoulEditor({
+                        agentId: selectedAgent.id,
+                        agentIdentity: props.agentIdentityById[selectedAgent.id] ?? null,
+                        agentFileContents: props.agentFileContents,
+                        agentFileDrafts: props.agentFileDrafts,
+                        agentFileSaving: props.agentFileSaving,
+                        onFileDraftChange: props.onFileDraftChange,
+                        onFileReset: props.onFileReset,
+                        onFileSave: props.onFileSave,
+                      })
+                    : nothing
+                }
               `
         }
       </section>
@@ -314,11 +345,13 @@ function renderAgentHeader(
 function renderAgentTabs(active: AgentsPanel, onSelect: (panel: AgentsPanel) => void) {
   const tabs: Array<{ id: AgentsPanel; label: string }> = [
     { id: "overview", label: "Overview" },
+    { id: "soul", label: "Soul" },
     { id: "files", label: "Files" },
     { id: "tools", label: "Tools" },
     { id: "skills", label: "Skills" },
     { id: "channels", label: "Channels" },
     { id: "cron", label: "Cron Jobs" },
+    { id: "activity", label: "Activity" },
   ];
   return html`
     <div class="agent-tabs">

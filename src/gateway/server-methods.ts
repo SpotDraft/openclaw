@@ -19,6 +19,7 @@ import { sessionsHandlers } from "./server-methods/sessions.js";
 import { skillsHandlers } from "./server-methods/skills.js";
 import { systemHandlers } from "./server-methods/system.js";
 import { talkHandlers } from "./server-methods/talk.js";
+import { tasksHandlers } from "./server-methods/tasks.js";
 import { ttsHandlers } from "./server-methods/tts.js";
 import { updateHandlers } from "./server-methods/update.js";
 import { usageHandlers } from "./server-methods/usage.js";
@@ -78,6 +79,8 @@ const READ_METHODS = new Set([
   "chat.history",
   "config.get",
   "talk.config",
+  "tasks.list",
+  "tasks.get",
 ]);
 const WRITE_METHODS = new Set([
   "send",
@@ -94,6 +97,8 @@ const WRITE_METHODS = new Set([
   "chat.send",
   "chat.abort",
   "browser.request",
+  "tasks.create",
+  "tasks.update",
 ]);
 
 function authorizeGatewayMethod(method: string, client: GatewayRequestOptions["client"]) {
@@ -194,6 +199,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...agentHandlers,
   ...agentsHandlers,
   ...browserHandlers,
+  ...tasksHandlers,
 };
 
 export async function handleGatewayRequest(

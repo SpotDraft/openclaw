@@ -3,6 +3,7 @@ import { truncateText } from "./format.ts";
 const TOOL_STREAM_LIMIT = 50;
 const TOOL_STREAM_THROTTLE_MS = 80;
 const TOOL_OUTPUT_CHAR_LIMIT = 120_000;
+const ACTIVITY_FEED_LIMIT = 100;
 
 export type AgentEventPayload = {
   runId: string;
@@ -11,6 +12,15 @@ export type AgentEventPayload = {
   ts: number;
   sessionKey?: string;
   data: Record<string, unknown>;
+};
+
+export type ActivityEntry = {
+  ts: number;
+  runId: string;
+  phase: string;
+  agentId?: string;
+  task?: string;
+  error?: string;
 };
 
 export type ToolStreamEntry = {
@@ -32,6 +42,7 @@ type ToolStreamHost = {
   toolStreamOrder: string[];
   chatToolMessages: Record<string, unknown>[];
   toolStreamSyncTimer: number | null;
+  activityFeed: ActivityEntry[];
 };
 
 function extractToolOutputText(value: unknown): string | null {
@@ -158,6 +169,7 @@ export function resetToolStream(host: ToolStreamHost) {
   host.toolStreamById.clear();
   host.toolStreamOrder = [];
   host.chatToolMessages = [];
+  host.activityFeed = [];
   flushToolStreamSync(host);
 }
 
@@ -212,6 +224,24 @@ export function handleAgentEvent(host: ToolStreamHost, payload?: AgentEventPaylo
   // Handle compaction events
   if (payload.stream === "compaction") {
     handleCompactionEvent(host as CompactionHost, payload);
+    return;
+  }
+
+  // Handle lifecycle events (subagent spawns, completions, errors)
+  if (payload.stream === "lifecycle") {
+    const data = payload.data ?? {};
+    const phase = typeof data.phase === "string" ? data.phase : "";
+    if (phase) {
+      const entry: ActivityEntry = {
+        ts: typeof payload.ts === "number" ? payload.ts : Date.now(),
+        runId: payload.runId,
+        phase,
+        agentId: typeof data.agentId === "string" ? data.agentId : undefined,
+        task: typeof data.task === "string" ? data.task : undefined,
+        error: typeof data.error === "string" ? data.error : undefined,
+      };
+      host.activityFeed = [...host.activityFeed, entry].slice(-ACTIVITY_FEED_LIMIT);
+    }
     return;
   }
 

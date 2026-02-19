@@ -3,7 +3,9 @@ import type {
   CommandCategory,
   CommandScope,
 } from "./commands-registry.types.js";
+import { listAgentIds } from "../agents/agent-scope.js";
 import { listChannelDocks } from "../channels/dock.js";
+import { loadConfig } from "../config/config.js";
 import { getActivePluginRegistry } from "../plugins/runtime.js";
 import { COMMAND_ARG_FORMATTERS } from "./commands-args.js";
 import { listThinkingLevels } from "./thinking.js";
@@ -606,6 +608,32 @@ function buildChatCommands(): ChatCommandDefinition[] {
           captureRemaining: true,
         },
       ],
+    }),
+    defineChatCommand({
+      key: "agent",
+      nativeName: "agent",
+      description: "Send a message to a specific agent.",
+      textAlias: "/agent",
+      category: "management",
+      args: [
+        {
+          name: "agentId",
+          description: "Agent id",
+          type: "string",
+          required: true,
+          choices: ({ cfg }) => {
+            const config = cfg ?? loadConfig();
+            return listAgentIds(config).map((id) => ({ value: id, label: id }));
+          },
+        },
+        {
+          name: "message",
+          description: "Message to send",
+          type: "string",
+          captureRemaining: true,
+        },
+      ],
+      argsMenu: { arg: "agentId", title: "Choose an agent:" },
     }),
     ...listChannelDocks()
       .filter((dock) => dock.capabilities.nativeCommands)

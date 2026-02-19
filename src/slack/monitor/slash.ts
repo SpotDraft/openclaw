@@ -26,6 +26,7 @@ import {
   upsertChannelPairingRequest,
 } from "../../pairing/pairing-store.js";
 import { resolveAgentRoute } from "../../routing/resolve-route.js";
+import { normalizeAgentId } from "../../routing/session-key.js";
 import { buildUntrustedChannelMetadata } from "../../security/channel-metadata.js";
 import {
   normalizeAllowList,
@@ -387,6 +388,23 @@ export function registerSlackMonitorSlashCommands(params: {
         },
       });
 
+      // /agent <agentId> <message> — override the route to target a specific agent
+      let agentPrompt = prompt;
+      if (commandDefinition?.key === "agent" && commandArgs?.values?.agentId) {
+        const targetAgentId = normalizeAgentId(String(commandArgs.values.agentId));
+        if (targetAgentId) {
+          route.agentId = targetAgentId;
+          route.matchedBy = "default";
+          // Use just the message portion as the prompt, not "/agent <id> <message>"
+          const message = commandArgs.values.message
+            ? String(commandArgs.values.message).trim()
+            : "";
+          if (message) {
+            agentPrompt = message;
+          }
+        }
+      }
+
       const untrustedChannelMetadata = isRoomish
         ? buildUntrustedChannelMetadata({
             source: "slack",
@@ -401,8 +419,8 @@ export function registerSlackMonitorSlashCommands(params: {
         systemPromptParts.length > 0 ? systemPromptParts.join("\n\n") : undefined;
 
       const ctxPayload = finalizeInboundContext({
-        Body: prompt,
-        BodyForAgent: prompt,
+        Body: agentPrompt,
+        BodyForAgent: agentPrompt,
         RawBody: prompt,
         CommandBody: prompt,
         CommandArgs: commandArgs,
