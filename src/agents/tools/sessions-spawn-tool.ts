@@ -6,6 +6,7 @@ import { formatThinkingLevels, normalizeThinkLevel } from "../../auto-reply/thin
 import { loadConfig } from "../../config/config.js";
 import { callGateway } from "../../gateway/call.js";
 import { normalizeAgentId, parseAgentSessionKey } from "../../routing/session-key.js";
+import { resolveEffectiveAllowAgents } from "../../teams/auto-wire.js";
 import { normalizeDeliveryContext } from "../../utils/delivery-context.js";
 import { resolveAgentConfig } from "../agent-scope.js";
 import { AGENT_LANE_SUBAGENT } from "../lanes.js";
@@ -145,7 +146,13 @@ export function createSessionsSpawnTool(opts?: {
         ? normalizeAgentId(requestedAgentId)
         : requesterAgentId;
       if (targetAgentId !== requesterAgentId) {
-        const allowAgents = resolveAgentConfig(cfg, requesterAgentId)?.subagents?.allowAgents ?? [];
+        const configuredAllowAgents = resolveAgentConfig(cfg, requesterAgentId)?.subagents
+          ?.allowAgents;
+        const allowAgents = resolveEffectiveAllowAgents(
+          cfg,
+          requesterAgentId,
+          configuredAllowAgents,
+        );
         const allowAny = allowAgents.some((value) => value.trim() === "*");
         const normalizedTargetId = targetAgentId.toLowerCase();
         const allowSet = new Set(

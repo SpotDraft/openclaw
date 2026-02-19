@@ -20,6 +20,7 @@ import { skillsHandlers } from "./server-methods/skills.js";
 import { systemHandlers } from "./server-methods/system.js";
 import { talkHandlers } from "./server-methods/talk.js";
 import { tasksHandlers } from "./server-methods/tasks.js";
+import { teamsHandlers } from "./server-methods/teams.js";
 import { ttsHandlers } from "./server-methods/tts.js";
 import { updateHandlers } from "./server-methods/update.js";
 import { usageHandlers } from "./server-methods/usage.js";
@@ -81,6 +82,8 @@ const READ_METHODS = new Set([
   "talk.config",
   "tasks.list",
   "tasks.get",
+  "teams.list",
+  "teams.status",
 ]);
 const WRITE_METHODS = new Set([
   "send",
@@ -99,6 +102,7 @@ const WRITE_METHODS = new Set([
   "browser.request",
   "tasks.create",
   "tasks.update",
+  "teams.run",
 ]);
 
 function authorizeGatewayMethod(method: string, client: GatewayRequestOptions["client"]) {
@@ -200,6 +204,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...agentsHandlers,
   ...browserHandlers,
   ...tasksHandlers,
+  ...teamsHandlers,
 };
 
 export async function handleGatewayRequest(

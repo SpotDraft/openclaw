@@ -12,6 +12,7 @@ import {
   SessionSchema,
   SessionSendPolicySchema,
 } from "./zod-schema.session.js";
+import { TeamsSchema } from "./zod-schema.teams.js";
 
 const BrowserSnapshotDefaultsSchema = z
   .object({
@@ -276,6 +277,7 @@ export const OpenClawSchema = z
     models: ModelsConfigSchema,
     nodeHost: NodeHostSchema,
     agents: AgentsSchema,
+    teams: TeamsSchema,
     tools: ToolsSchema,
     bindings: BindingsSchema,
     broadcast: BroadcastSchema,
@@ -639,6 +641,32 @@ export const OpenClawSchema = z
       return;
     }
     const agentIds = new Set(agents.map((agent) => agent.id));
+
+    const teams = cfg.teams;
+    if (Array.isArray(teams)) {
+      for (let ti = 0; ti < teams.length; ti += 1) {
+        const team = teams[ti];
+        if (team.lead && !agentIds.has(team.lead)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["teams", ti, "lead"],
+            message: `Unknown agent id "${team.lead}" (not in agents.list).`,
+          });
+        }
+        if (Array.isArray(team.members)) {
+          for (let mi = 0; mi < team.members.length; mi += 1) {
+            const memberId = team.members[mi];
+            if (!agentIds.has(memberId)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["teams", ti, "members", mi],
+                message: `Unknown agent id "${memberId}" (not in agents.list).`,
+              });
+            }
+          }
+        }
+      }
+    }
 
     const broadcast = cfg.broadcast;
     if (!broadcast) {

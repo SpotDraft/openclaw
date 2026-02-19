@@ -13,6 +13,7 @@ import type {
   AgentsListResult,
   AgentsFilesListResult,
   AgentIdentityResult,
+  TeamsListResult,
   ConfigSnapshot,
   ConfigUiHints,
   CronJob,
@@ -228,6 +229,16 @@ export class OpenClawApp extends LitElement {
   @state() agentSkillsError: string | null = null;
   @state() agentSkillsReport: SkillStatusReport | null = null;
   @state() agentSkillsAgentId: string | null = null;
+
+  @state() teamsLoading = false;
+  @state() teamsList: TeamsListResult | null = null;
+  @state() teamsError: string | null = null;
+  @state() teamsSelectedId: string | null = null;
+  @state() teamsPanel: "overview" | "chat" | "status" = "overview";
+  @state() teamsChatMessage = "";
+  @state() teamsChatSending = false;
+  @state() teamsChatMessages: Array<{ role: "user" | "assistant"; text: string; ts: number }> = [];
+  @state() teamsChatRunId: string | null = null;
 
   @state() sessionsLoading = false;
   @state() sessionsResult: SessionsListResult | null = null;

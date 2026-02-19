@@ -50,6 +50,7 @@ import {
   updateSkillEdit,
   updateSkillEnabled,
 } from "./controllers/skills.ts";
+import { loadTeams, sendTeamMessage } from "./controllers/teams.ts";
 import { icons } from "./icons.ts";
 import { normalizeBasePath, TAB_GROUPS, subtitleForTab, titleForTab } from "./navigation.ts";
 import { renderAgents } from "./views/agents.ts";
@@ -66,6 +67,7 @@ import { renderNodes } from "./views/nodes.ts";
 import { renderOverview } from "./views/overview.ts";
 import { renderSessions } from "./views/sessions.ts";
 import { renderSkills } from "./views/skills.ts";
+import { renderTeams } from "./views/teams.ts";
 
 const AVATAR_DATA_RE = /^data:/i;
 const AVATAR_HTTP_RE = /^https?:\/\//i;
@@ -700,6 +702,33 @@ export function renderApp(state: AppViewState) {
                     : { fallbacks: normalized };
                   updateConfigFormValue(state, basePath, next);
                 },
+              })
+            : nothing
+        }
+
+        ${
+          state.tab === "teams"
+            ? renderTeams({
+                loading: state.teamsLoading,
+                error: state.teamsError,
+                teamsList: state.teamsList,
+                selectedTeamId: state.teamsSelectedId,
+                activePanel: state.teamsPanel,
+                chatMessage: state.teamsChatMessage,
+                chatSending: state.teamsChatSending,
+                chatMessages: state.teamsChatMessages,
+                agentIdentityById: state.agentIdentityById,
+                onRefresh: () => loadTeams(state),
+                onSelectTeam: (teamId) => {
+                  state.teamsSelectedId = teamId;
+                },
+                onSelectPanel: (panel) => {
+                  state.teamsPanel = panel;
+                },
+                onChatMessageChange: (msg) => {
+                  state.teamsChatMessage = msg;
+                },
+                onSendChat: (teamId) => sendTeamMessage(state, teamId),
               })
             : nothing
         }

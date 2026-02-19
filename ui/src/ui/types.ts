@@ -554,6 +554,25 @@ export type StatusSummary = Record<string, unknown>;
 
 export type HealthSnapshot = Record<string, unknown>;
 
+export type TeamSummary = {
+  id: string;
+  name?: string;
+  lead: { id: string; name?: string };
+  members: Array<{ id: string; name?: string }>;
+  description?: string;
+};
+
+export type TeamsListResult = { teams: TeamSummary[] };
+
+export type TeamsStatusResult = {
+  teamId: string;
+  name?: string;
+  leadAgentId: string;
+  leadActiveRuns: number;
+  totalActiveRuns: number;
+  members: Array<{ agentId: string; activeRuns: number }>;
+};
+
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 export type LogEntry = {

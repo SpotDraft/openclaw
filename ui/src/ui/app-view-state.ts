@@ -13,6 +13,7 @@ import type {
   AgentsListResult,
   AgentsFilesListResult,
   AgentIdentityResult,
+  TeamsListResult,
   ChannelsStatusSnapshot,
   ConfigSnapshot,
   ConfigUiHints,
@@ -147,6 +148,15 @@ export type AppViewState = {
   agentIdentityLoading: boolean;
   agentIdentityError: string | null;
   agentIdentityById: Record<string, AgentIdentityResult>;
+  teamsLoading: boolean;
+  teamsList: TeamsListResult | null;
+  teamsError: string | null;
+  teamsSelectedId: string | null;
+  teamsPanel: "overview" | "chat" | "status";
+  teamsChatMessage: string;
+  teamsChatSending: boolean;
+  teamsChatMessages: Array<{ role: "user" | "assistant"; text: string; ts: number }>;
+  teamsChatRunId: string | null;
   agentSkillsLoading: boolean;
   agentSkillsError: string | null;
   agentSkillsReport: SkillStatusReport | null;
