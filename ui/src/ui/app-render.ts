@@ -392,7 +392,16 @@ export function renderApp(state: AppViewState) {
                   state.agentSkillsError = null;
                   state.agentSkillsAgentId = null;
                   void loadAgentIdentity(state, agentId);
-                  if (state.agentsPanel === "files" || state.agentsPanel === "soul") {
+                  if (state.agentsPanel === "soul") {
+                    const loadSoul = async () => {
+                      await loadAgentFiles(state, agentId);
+                      state.agentFileActive = "SOUL.md";
+                      if (!state.agentFileContents["SOUL.md"]) {
+                        void loadAgentFileContent(state, agentId, "SOUL.md");
+                      }
+                    };
+                    void loadSoul();
+                  } else if (state.agentsPanel === "files") {
                     void loadAgentFiles(state, agentId);
                   }
                   if (state.agentsPanel === "skills") {
@@ -402,19 +411,27 @@ export function renderApp(state: AppViewState) {
                 onSelectPanel: (panel) => {
                   state.agentsPanel = panel;
                   if ((panel === "files" || panel === "soul") && resolvedAgentId) {
-                    if (state.agentFilesList?.agentId !== resolvedAgentId) {
+                    const needsFileList = state.agentFilesList?.agentId !== resolvedAgentId;
+                    if (needsFileList) {
                       state.agentFilesList = null;
                       state.agentFilesError = null;
                       state.agentFileActive = null;
                       state.agentFileContents = {};
                       state.agentFileDrafts = {};
-                      void loadAgentFiles(state, resolvedAgentId);
                     }
                     if (panel === "soul") {
                       state.agentFileActive = "SOUL.md";
-                      if (resolvedAgentId && !state.agentFileContents["SOUL.md"]) {
-                        void loadAgentFileContent(state, resolvedAgentId, "SOUL.md");
-                      }
+                      const loadSoul = async () => {
+                        if (needsFileList) {
+                          await loadAgentFiles(state, resolvedAgentId);
+                        }
+                        if (!state.agentFileContents["SOUL.md"]) {
+                          void loadAgentFileContent(state, resolvedAgentId, "SOUL.md");
+                        }
+                      };
+                      void loadSoul();
+                    } else if (needsFileList) {
+                      void loadAgentFiles(state, resolvedAgentId);
                     }
                   }
                   if (panel === "skills") {
