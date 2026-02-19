@@ -1,5 +1,6 @@
 import type { OpenClawConfig } from "../../config/config.js";
 import { callGateway } from "../../gateway/call.js";
+import { normalizeAgentId } from "../../routing/session-key.js";
 import { isAcpSessionKey, normalizeMainKey } from "../../routing/session-key.js";
 import { sanitizeUserFacingText } from "../pi-embedded-helpers.js";
 import {
@@ -79,6 +80,24 @@ export function createAgentToAgentPolicy(cfg: OpenClawConfig): AgentToAgentPolic
   const routingA2A = cfg.tools?.agentToAgent;
   const enabled = routingA2A?.enabled === true;
   const allowPatterns = Array.isArray(routingA2A?.allow) ? routingA2A.allow : [];
+
+  // Build a set of team-lead -> members relationships so leads can always
+  // access their own team members without requiring the global a2a toggle.
+  const teamLeadMembers = new Map<string, Set<string>>();
+  if (Array.isArray(cfg.teams)) {
+    for (const team of cfg.teams) {
+      const leadId = normalizeAgentId(team.lead);
+      let members = teamLeadMembers.get(leadId);
+      if (!members) {
+        members = new Set();
+        teamLeadMembers.set(leadId, members);
+      }
+      for (const memberId of team.members) {
+        members.add(normalizeAgentId(memberId));
+      }
+    }
+  }
+
   const matchesAllow = (agentId: string) => {
     if (allowPatterns.length === 0) {
       return true;
@@ -101,6 +120,11 @@ export function createAgentToAgentPolicy(cfg: OpenClawConfig): AgentToAgentPolic
   };
   const isAllowed = (requesterAgentId: string, targetAgentId: string) => {
     if (requesterAgentId === targetAgentId) {
+      return true;
+    }
+    // Team leads can always access their members' sessions.
+    const members = teamLeadMembers.get(requesterAgentId);
+    if (members?.has(targetAgentId)) {
       return true;
     }
     if (!enabled) {

@@ -232,20 +232,14 @@ export function createSessionsHistoryTool(opts?: {
       const requesterAgentId = resolveAgentIdFromSessionKey(requesterInternalKey);
       const targetAgentId = resolveAgentIdFromSessionKey(resolvedKey);
       const isCrossAgent = requesterAgentId !== targetAgentId;
-      if (isCrossAgent) {
-        if (!a2aPolicy.enabled) {
-          return jsonResult({
-            status: "forbidden",
-            error:
-              "Agent-to-agent history is disabled. Set tools.agentToAgent.enabled=true to allow cross-agent access.",
-          });
-        }
-        if (!a2aPolicy.isAllowed(requesterAgentId, targetAgentId)) {
-          return jsonResult({
-            status: "forbidden",
-            error: "Agent-to-agent history denied by tools.agentToAgent.allow.",
-          });
-        }
+      if (isCrossAgent && !a2aPolicy.isAllowed(requesterAgentId, targetAgentId)) {
+        const error = !a2aPolicy.enabled
+          ? "Agent-to-agent history is disabled. Set tools.agentToAgent.enabled=true to allow cross-agent access."
+          : "Agent-to-agent history denied by tools.agentToAgent.allow.";
+        return jsonResult({
+          status: "forbidden",
+          error,
+        });
       }
 
       const limit =

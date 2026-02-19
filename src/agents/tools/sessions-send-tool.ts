@@ -110,19 +110,14 @@ export function createSessionsSendTool(opts?: {
         }
 
         if (requesterAgentId && requestedAgentId && requestedAgentId !== requesterAgentId) {
-          if (!a2aPolicy.enabled) {
-            return jsonResult({
-              runId: crypto.randomUUID(),
-              status: "forbidden",
-              error:
-                "Agent-to-agent messaging is disabled. Set tools.agentToAgent.enabled=true to allow cross-agent sends.",
-            });
-          }
           if (!a2aPolicy.isAllowed(requesterAgentId, requestedAgentId)) {
+            const error = !a2aPolicy.enabled
+              ? "Agent-to-agent messaging is disabled. Set tools.agentToAgent.enabled=true to allow cross-agent sends."
+              : "Agent-to-agent messaging denied by tools.agentToAgent.allow.";
             return jsonResult({
               runId: crypto.randomUUID(),
               status: "forbidden",
-              error: "Agent-to-agent messaging denied by tools.agentToAgent.allow.",
+              error,
             });
           }
         }
@@ -227,24 +222,16 @@ export function createSessionsSendTool(opts?: {
       const requesterAgentId = resolveAgentIdFromSessionKey(requesterInternalKey);
       const targetAgentId = resolveAgentIdFromSessionKey(resolvedKey);
       const isCrossAgent = requesterAgentId !== targetAgentId;
-      if (isCrossAgent) {
-        if (!a2aPolicy.enabled) {
-          return jsonResult({
-            runId: crypto.randomUUID(),
-            status: "forbidden",
-            error:
-              "Agent-to-agent messaging is disabled. Set tools.agentToAgent.enabled=true to allow cross-agent sends.",
-            sessionKey: displayKey,
-          });
-        }
-        if (!a2aPolicy.isAllowed(requesterAgentId, targetAgentId)) {
-          return jsonResult({
-            runId: crypto.randomUUID(),
-            status: "forbidden",
-            error: "Agent-to-agent messaging denied by tools.agentToAgent.allow.",
-            sessionKey: displayKey,
-          });
-        }
+      if (isCrossAgent && !a2aPolicy.isAllowed(requesterAgentId, targetAgentId)) {
+        const error = !a2aPolicy.enabled
+          ? "Agent-to-agent messaging is disabled. Set tools.agentToAgent.enabled=true to allow cross-agent sends."
+          : "Agent-to-agent messaging denied by tools.agentToAgent.allow.";
+        return jsonResult({
+          runId: crypto.randomUUID(),
+          status: "forbidden",
+          error,
+          sessionKey: displayKey,
+        });
       }
 
       const agentMessageContext = buildAgentToAgentMessageContext({
