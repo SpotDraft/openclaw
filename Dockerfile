@@ -1,4 +1,4 @@
-FROM node:22-bookworm
+FROM --platform=linux/amd64 cgr.dev/spotdraft.com/node-fips:22-dev
 
 # Install Bun (required for build scripts)
 RUN curl -fsSL https://bun.sh/install | bash
